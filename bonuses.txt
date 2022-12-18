@@ -12,7 +12,15 @@ with a short description of:
 
 1. Fully supporting all configuration fields and avoiding the use of magic numbers
 
-We are not entitled to this bonus.
+1. we dont use magic numbers. instead we use the config numbers in:
+ dealer::timerloop
+ dealer::examine
+ dealer::sleepuntilwakenortimeout
+ player::run
+ player::point
+ player::penalty
+ Table::placecard
+
 
 --------------------
 

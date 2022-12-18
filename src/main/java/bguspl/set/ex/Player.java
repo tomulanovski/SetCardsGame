@@ -70,6 +70,8 @@ public class Player implements Runnable {
 
     private long sleeptime;
 
+    private Object ailock = new Object();
+
     /**
      * The class constructor.
      *
@@ -85,7 +87,7 @@ public class Player implements Runnable {
         this.id = id;
         this.human = human;
         this.dealer = dealer;
-        this.tokensplaced = new LinkedList<Integer>();
+        this.tokensplaced = new LinkedList<>();
         this.keyBlock = false;
         inputpresses = new LinkedBlockingQueue<>();
     }
@@ -99,10 +101,11 @@ public class Player implements Runnable {
         env.logger.log(Level.INFO, "Thread " + Thread.currentThread().getName() + "starting.");
         if (!human) createArtificialIntelligence();
         while (!terminate) {
-            if (sleeptime == 3000) {
+            synchronized (ailock) { ailock.notifyAll(); } // wake up the aithread
+            if (sleeptime == env.config.penaltyFreezeMillis) {
                 System.out.println(Thread.currentThread());
                 penalty();
-            } else if (sleeptime == 1000)
+            } else if (sleeptime == env.config.pointFreezeMillis)
                 point();
             if (!inputpresses.isEmpty()) {
                 int slot = inputpresses.poll();
@@ -130,8 +133,8 @@ public class Player implements Runnable {
                 int rndslot = rand.nextInt(12);
                 keyPressed(rndslot);
                 try {
-                    synchronized (this) {
-                        wait(1);
+                    synchronized (ailock) { // we do it to avoid busy wait
+                        ailock.wait();
                     }
                 } catch (InterruptedException ignored) {
 
@@ -151,7 +154,7 @@ public class Player implements Runnable {
      * Called when the game should be terminated due to an external event.
      */
     public void terminate() {
-        terminate = true;
+        terminate = playerThread.isInterrupted();
     }
 
     /**
@@ -178,9 +181,6 @@ public class Player implements Runnable {
                     if (tokensplaced.size() == 3) {
                         keyBlock = true;
                         dealer.HandleTest(this);
-//                        try {
-//                            synchronized (this) { wait(); }
-//                        }catch (InterruptedException e){};
                     }
                 }
             }
@@ -200,10 +200,10 @@ public class Player implements Runnable {
     public void point() {
         int ignored = table.countCards(); // this part is just for demonstration in the unit tests
         env.ui.setScore(id, ++score);
-//        long freezetime = System.currentTimeMillis() + env.config.pointFreezeMillis+1000;
-//        while (System.currentTimeMillis() <= freezetime) {
-//            env.ui.setFreeze(id, freezetime - System.currentTimeMillis());
-//        }
+        long freezetime = System.currentTimeMillis() + env.config.pointFreezeMillis+1000;
+        while (System.currentTimeMillis() <= freezetime) {
+            env.ui.setFreeze(id, freezetime - System.currentTimeMillis());
+        }
         sleeptime = 0;
         keyBlock=false;
     }
@@ -212,10 +212,10 @@ public class Player implements Runnable {
      * Penalize a player and perform other related actions.
      */
     public void penalty() {
-//        long freezetime = System.currentTimeMillis() + env.config.penaltyFreezeMillis+1000;
-//        while (System.currentTimeMillis() <= freezetime) {
-//            env.ui.setFreeze(id, freezetime - System.currentTimeMillis());
-//        }
+        long freezetime = System.currentTimeMillis() + env.config.penaltyFreezeMillis+1000;
+        while (System.currentTimeMillis() <= freezetime) {
+            env.ui.setFreeze(id, freezetime - System.currentTimeMillis());
+        }
         sleeptime = 0;
         keyBlock=false;
     }
