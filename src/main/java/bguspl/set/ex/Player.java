@@ -6,6 +6,7 @@ import java.util.Queue;
 import java.util.Random;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 
 import bguspl.set.Env;
@@ -53,6 +54,8 @@ public class Player implements Runnable {
      */
     private volatile boolean terminate;
 
+    private ReentrantLock checklock;
+
     /**
      * The current score of the player.
      */
@@ -81,7 +84,7 @@ public class Player implements Runnable {
      * @param id     - the id of the player.
      * @param human  - true iff the player is a human player (i.e. input is provided manually, via the keyboard).
      */
-    public Player(Env env, Dealer dealer, Table table, int id, boolean human) {
+    public Player(Env env, Dealer dealer, Table table, int id, boolean human ) {
         this.env = env;
         this.table = table;
         this.id = id;
@@ -89,7 +92,8 @@ public class Player implements Runnable {
         this.dealer = dealer;
         this.tokensplaced = new LinkedList<>();
         this.keyBlock = false;
-        inputpresses = new LinkedBlockingQueue<>();
+        inputpresses = new LinkedBlockingQueue<>(3);
+        this.checklock = dealer.getLock();
     }
 
     /**
@@ -154,7 +158,7 @@ public class Player implements Runnable {
      * Called when the game should be terminated due to an external event.
      */
     public void terminate() {
-        terminate = playerThread.isInterrupted();
+        terminate = true;
     }
 
     /**
@@ -163,7 +167,7 @@ public class Player implements Runnable {
      * @param slot - the slot corresponding to the key pressed.
      */
     public void keyPressed(int slot) {
-        if (inputpresses.size()<3 && !keyBlock && table.slotToCard[slot]!=null ) {
+        if (inputpresses.size()<3 && !keyBlock) {
             inputpresses.add(slot);
         }
     }
@@ -179,8 +183,31 @@ public class Player implements Runnable {
                     tokensplaced.add(slot); //adding to the queue of the player tokens
                     env.ui.placeToken(this.id, slot);
                     if (tokensplaced.size() == 3) {
+                        boolean ans = checklock.tryLock(); //trying to acquire the lock and returning if was able to or not
                         keyBlock = true;
-                        dealer.HandleTest(this);
+                        boolean done=false;
+                        while (!done) {
+                        if (ans) {
+                            try {
+                            dealer.HandleTest(this);
+                            }
+                            finally {
+                                checklock.unlock();
+                                try {
+                                    synchronized (this) { wait();}
+                                }catch (InterruptedException e){}
+                                done=true;
+                            }
+                            }
+                        else {
+                            ans = checklock.tryLock();
+                        }
+                        }
+//                        keyBlock = true;
+//                        dealer.HandleTest(this);
+//                        try {
+//                            synchronized (this) { wait();}
+//                        }catch (InterruptedException e){}
                     }
                 }
             }
@@ -219,7 +246,7 @@ public class Player implements Runnable {
         sleeptime = 0;
         keyBlock=false;
     }
-    public synchronized void Wakeup(long sleeptime) {
+    public void Wakeup(long sleeptime) {
         this.sleeptime = sleeptime;
     }
 

@@ -1,12 +1,10 @@
 package bguspl.set.ex;
 import bguspl.set.Env;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
 import java.util.Random;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -45,6 +43,9 @@ public class Dealer implements Runnable {
 
     private Queue<Player> SetsToTest;
 
+    private ReentrantLock checklock = new ReentrantLock();
+
+
 
     public Dealer(Env env, Table table, Player[] players) {
         this.env = env;
@@ -76,6 +77,12 @@ public class Dealer implements Runnable {
             removeAllCardsFromTable();
         } while (!shouldFinish());
         announceWinners();
+        this.terminate();
+        for (int i=threads.length-1;i>=0;i--) {
+            try {
+                threads[i].join();
+            } catch (InterruptedException e){}
+        }
         env.logger.log(Level.INFO, "Thread " + Thread.currentThread().getName() + " terminated.");
     }
 
@@ -95,12 +102,13 @@ public class Dealer implements Runnable {
         }
     }
 
+    public ReentrantLock getLock() {
+        return checklock;
+    }
+
     public synchronized void HandleTest(Player p) {
         SetsToTest.add(p);
         notifyAll();
-//        try {
-//            synchronized (p) { p.wait();}
-//        }catch (InterruptedException e){}
     }
 
     private void examine(Player p) {
@@ -121,12 +129,12 @@ public class Dealer implements Runnable {
         } else {
             p.Wakeup(env.config.penaltyFreezeMillis);
         }
-//        synchronized (p) { p.notifyAll();}
 
         if (isSet) {
             reshuffleTime = System.currentTimeMillis() + env.config.turnTimeoutMillis;
             env.ui.setCountdown(env.config.turnTimeoutMillis, false);
         }
+        synchronized (p) { p.notifyAll();}
 
     }
 
@@ -159,6 +167,7 @@ public class Dealer implements Runnable {
             env.ui.removeCard(slot);
             for (Player player : SetsToTest) { // if the player sent a set to test with this card, we remove the set from the queue
                 if (player.gettokensplaced().contains(slot)) {
+                    synchronized (player) { player.notifyAll(); }
                     SetsToTest.remove(player);
                     player.setBlock(false);
                 }
@@ -166,7 +175,7 @@ public class Dealer implements Runnable {
             for (int j = 0; j < players.length; j++) {
                 if (players[j].getInputPresses().contains(slot))
                     players[j].getInputPresses().remove(slot);
-                if (players[j].gettokensplaced().contains((Object) slot))
+                if (players[j].gettokensplaced().contains(slot))
                     players[j].gettokensplaced().remove((Object) slot);
 
             }
@@ -195,7 +204,7 @@ public class Dealer implements Runnable {
     private synchronized void sleepUntilWokenOrTimeout() {
         int towait = 1000;
         if (reshuffleTime - System.currentTimeMillis() < env.config.turnTimeoutMillis)
-            towait = 20;
+            towait = 10;
         try {
             wait(towait);
         } catch (InterruptedException e) {}
