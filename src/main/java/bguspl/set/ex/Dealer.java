@@ -78,9 +78,9 @@ public class Dealer implements Runnable {
         } while (!shouldFinish());
         announceWinners();
         this.terminate();
-        for (int i=threads.length-1;i>=0;i--) {
+        for (int i= players.length-1;i>=0;i--) {
             try {
-                threads[i].join();
+                players[i].getPlayerThread().join();
             } catch (InterruptedException e){}
         }
         env.logger.log(Level.INFO, "Thread " + Thread.currentThread().getName() + " terminated.");
@@ -90,6 +90,7 @@ public class Dealer implements Runnable {
      * The inner loop of the dealer thread that runs as long as the countdown did not time out.
      */
     private void timerLoop() {
+        if (shouldFinish()) terminate();
         reshuffleTime = System.currentTimeMillis() + env.config.turnTimeoutMillis;
         env.ui.setCountdown(env.config.turnTimeoutMillis, false);
         while (!terminate && System.currentTimeMillis() < reshuffleTime) {
@@ -112,6 +113,7 @@ public class Dealer implements Runnable {
     }
 
     private void examine(Player p) {
+        System.out.println(threads[p.id].getName());
         int[] cards = new int[3];
         boolean isSet = false;
         if (p.gettokensplaced().size() == 3) {
@@ -122,19 +124,22 @@ public class Dealer implements Runnable {
             isSet = env.util.testSet(cards);
         }
         if (isSet) {
+            p.Wakeup(env.config.pointFreezeMillis);
+            synchronized (p) { p.notifyAll();}
             removeCardsFromTable(cards); //removing the three cards of the set
             placeCardsOnTable();
-            p.Wakeup(env.config.pointFreezeMillis);
+//            p.Wakeup(env.config.pointFreezeMillis);
 
         } else {
             p.Wakeup(env.config.penaltyFreezeMillis);
+            synchronized (p) { p.notifyAll();}
         }
 
         if (isSet) {
             reshuffleTime = System.currentTimeMillis() + env.config.turnTimeoutMillis;
             env.ui.setCountdown(env.config.turnTimeoutMillis, false);
         }
-        synchronized (p) { p.notifyAll();}
+//        synchronized (p) { p.notifyAll();}
 
     }
 
@@ -201,12 +206,12 @@ public class Dealer implements Runnable {
     /**
      * Sleep for a fixed amount of time or until the thread is awakened for some purpose.
      */
-    private synchronized void sleepUntilWokenOrTimeout() {
+    private void sleepUntilWokenOrTimeout() {
         int towait = 1000;
         if (reshuffleTime - System.currentTimeMillis() < env.config.turnTimeoutMillis)
             towait = 10;
         try {
-            wait(towait);
+            synchronized(this) { wait(towait);}
         } catch (InterruptedException e) {}
     }
 

@@ -75,6 +75,8 @@ public class Player implements Runnable {
 
     private Object ailock = new Object();
 
+    private Object Lock = new Object();
+
     /**
      * The class constructor.
      *
@@ -106,8 +108,11 @@ public class Player implements Runnable {
         if (!human) createArtificialIntelligence();
         while (!terminate) {
             synchronized (ailock) { ailock.notifyAll(); } // wake up the aithread
+//            try {
+//                synchronized (Lock) { Lock.wait();}
+//            } catch (InterruptedException e){}
+//            synchronized (ailock) { ailock.notifyAll(); } // wake up the aithread
             if (sleeptime == env.config.penaltyFreezeMillis) {
-                System.out.println(Thread.currentThread());
                 penalty();
             } else if (sleeptime == env.config.pointFreezeMillis)
                 point();
@@ -167,9 +172,10 @@ public class Player implements Runnable {
      * @param slot - the slot corresponding to the key pressed.
      */
     public void keyPressed(int slot) {
-        if (inputpresses.size()<3 && !keyBlock) {
+        if (inputpresses.size()<3 && !keyBlock && table.slotToCard[slot] != null) {
             inputpresses.add(slot);
         }
+//        synchronized (Lock) { Lock.notifyAll(); }
     }
 
     private void handleKeyPress(int slot) {
@@ -227,10 +233,10 @@ public class Player implements Runnable {
     public void point() {
         int ignored = table.countCards(); // this part is just for demonstration in the unit tests
         env.ui.setScore(id, ++score);
-        long freezetime = System.currentTimeMillis() + env.config.pointFreezeMillis+1000;
-        while (System.currentTimeMillis() <= freezetime) {
-            env.ui.setFreeze(id, freezetime - System.currentTimeMillis());
-        }
+//        long freezetime = System.currentTimeMillis() + env.config.pointFreezeMillis+1000;
+//        while (System.currentTimeMillis() <= freezetime) {
+//            env.ui.setFreeze(id, freezetime - System.currentTimeMillis());
+//        }
         sleeptime = 0;
         keyBlock=false;
     }
@@ -239,10 +245,10 @@ public class Player implements Runnable {
      * Penalize a player and perform other related actions.
      */
     public void penalty() {
-        long freezetime = System.currentTimeMillis() + env.config.penaltyFreezeMillis+1000;
-        while (System.currentTimeMillis() <= freezetime) {
-            env.ui.setFreeze(id, freezetime - System.currentTimeMillis());
-        }
+//        long freezetime = System.currentTimeMillis() + env.config.penaltyFreezeMillis+1000;
+//        while (System.currentTimeMillis() <= freezetime) {
+//            env.ui.setFreeze(id, freezetime - System.currentTimeMillis());
+//        }
         sleeptime = 0;
         keyBlock=false;
     }
@@ -259,6 +265,10 @@ public class Player implements Runnable {
     }
     public void setBlock(boolean toblock) {
         keyBlock = toblock;
+    }
+
+    public Thread getPlayerThread() {
+        return playerThread;
     }
 
 }
