@@ -145,7 +145,6 @@ public class Dealer implements Runnable {
         terminate = true;
         for (int i = players.length - 1; i >= 0; i--) {
             players[i].terminate();
-            synchronized (players[i]) { players[i].notifyAll();}
         }
     }
 
@@ -169,7 +168,7 @@ public class Dealer implements Runnable {
             env.ui.removeCard(slot);
             for (Player player : SetsToTest) { // if the player sent a set to test with this card, we remove the set from the queue
                 if (player.gettokensplaced().contains(slot)) {
-                    synchronized (player) { player.notifyAll(); }
+                    synchronized (player) { player.notifyAll(); } // waking up the player because he no longer has a set to check
                     SetsToTest.remove(player);
                     player.setBlock(false);
                 }

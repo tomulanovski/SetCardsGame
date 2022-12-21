@@ -75,7 +75,7 @@ public class Player implements Runnable {
 
     private Object ailock = new Object();
 
-    private Object Lock = new Object();
+    private Object PressLock = new Object();
 
     /**
      * The class constructor.
@@ -108,7 +108,9 @@ public class Player implements Runnable {
         env.logger.log(Level.INFO, "Thread " + Thread.currentThread().getName() + "starting.");
         if (!human) createArtificialIntelligence();
         while (!terminate) {
-            synchronized (ailock) { ailock.notifyAll(); } // wake up the aithread
+            try {
+                synchronized (PressLock) {PressLock.wait();} // player is in wait while no key pressed
+            }catch (InterruptedException e){}
             if (sleeptime == env.config.penaltyFreezeMillis) {
                 penalty();
             } else if (sleeptime == env.config.pointFreezeMillis)
@@ -119,7 +121,6 @@ public class Player implements Runnable {
             }
         }
         if (!human) try {
-            synchronized (ailock) { ailock.notifyAll(); }
             aiThread.join();
         } catch (InterruptedException ignored) {
         }
@@ -141,8 +142,8 @@ public class Player implements Runnable {
                 keyPressed(rndslot);
                 try {
                     if(!terminate) {
-                        synchronized (ailock) { // we do it to avoid busy wait
-                            ailock.wait();
+                        synchronized (ailock) {
+                            ailock.wait(1);
                         }
                     }
                 } catch (InterruptedException ignored) {
@@ -164,6 +165,9 @@ public class Player implements Runnable {
      */
     public void terminate() {
         terminate = true;
+        synchronized (PressLock) { PressLock.notifyAll();} // waking up sleeping player waiting for press
+        synchronized (this) {notifyAll();} // waking up sleep player waiting for set check
+
     }
 
     /**
@@ -175,7 +179,7 @@ public class Player implements Runnable {
         if (inputpresses.size()<env.config.featureSize && !keyBlock && table.slotToCard[slot] != null) {
             inputpresses.add(slot);
         }
-//        synchronized (Lock) { Lock.notifyAll(); }
+        synchronized (PressLock) { PressLock.notifyAll(); } //waking up the player
     }
 
     private void handleKeyPress(int slot) {
@@ -209,11 +213,6 @@ public class Player implements Runnable {
                             ans = checklock.tryLock();
                         }
                         }
-//                        keyBlock = true;
-//                        dealer.HandleTest(this);
-//                        try {
-//                            synchronized (this) { wait();}
-//                        }catch (InterruptedException e){}
                     }
                 }
             }
@@ -269,6 +268,10 @@ public class Player implements Runnable {
 
     public Thread getPlayerThread() {
         return playerThread;
+    }
+
+    public Object getLock(){
+        return PressLock;
     }
 
 }
