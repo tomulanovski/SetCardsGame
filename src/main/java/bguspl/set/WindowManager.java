@@ -18,7 +18,7 @@ public class WindowManager implements WindowListener {
         try {
             Main.xButtonPressed();
         } catch (InterruptedException ignored) {}
-    }
+        }
 
     @Override
     public void windowClosed(WindowEvent e) {

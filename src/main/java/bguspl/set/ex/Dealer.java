@@ -77,7 +77,7 @@ public class Dealer implements Runnable {
             removeAllCardsFromTable();
         } while (!shouldFinish());
         announceWinners();
-        this.terminate();
+        terminate();
         for (int i= players.length-1;i>=0;i--) {
             try {
                 players[i].getPlayerThread().join();
@@ -90,7 +90,6 @@ public class Dealer implements Runnable {
      * The inner loop of the dealer thread that runs as long as the countdown did not time out.
      */
     private void timerLoop() {
-        if (shouldFinish()) terminate();
         reshuffleTime = System.currentTimeMillis() + env.config.turnTimeoutMillis;
         env.ui.setCountdown(env.config.turnTimeoutMillis, false);
         while (!terminate && System.currentTimeMillis() < reshuffleTime) {
@@ -114,9 +113,9 @@ public class Dealer implements Runnable {
 
     private void examine(Player p) {
         System.out.println(threads[p.id].getName());
-        int[] cards = new int[3];
+        int[] cards = new int[env.config.featureSize]; //featureSize is 3
         boolean isSet = false;
-        if (p.gettokensplaced().size() == 3) {
+        if (p.gettokensplaced().size() == env.config.featureSize) {
             for (int i = 0; i < cards.length; i++) {
                 cards[i] = table.slotToCard[(int) p.gettokensplaced().get(i)];
             }
@@ -124,22 +123,19 @@ public class Dealer implements Runnable {
             isSet = env.util.testSet(cards);
         }
         if (isSet) {
-            p.Wakeup(env.config.pointFreezeMillis);
-            synchronized (p) { p.notifyAll();}
             removeCardsFromTable(cards); //removing the three cards of the set
             placeCardsOnTable();
-//            p.Wakeup(env.config.pointFreezeMillis);
+            p.Wakeup(env.config.pointFreezeMillis);
 
         } else {
             p.Wakeup(env.config.penaltyFreezeMillis);
-            synchronized (p) { p.notifyAll();}
         }
 
         if (isSet) {
             reshuffleTime = System.currentTimeMillis() + env.config.turnTimeoutMillis;
             env.ui.setCountdown(env.config.turnTimeoutMillis, false);
         }
-//        synchronized (p) { p.notifyAll();}
+        synchronized (p) { p.notifyAll();}
 
     }
 
@@ -147,8 +143,10 @@ public class Dealer implements Runnable {
      * Called when the game should be terminated due to an external event.
      */
     public void terminate() {
+        terminate = true;
         for (int i = players.length - 1; i >= 0; i--) {
             players[i].terminate();
+            synchronized (players[i]) { players[i].notifyAll();}
         }
     }
 
@@ -185,13 +183,14 @@ public class Dealer implements Runnable {
 
             }
         }
+        if (shouldFinish()) terminate();
     }
 
     /**
      * Check if any cards can be removed from the deck and placed on the table.
      */
     private void placeCardsOnTable() {
-        for (int i = 0; i < 12; i++) {
+        for (int i = 0; i < table.slotToCard.length; i++) {
             if (table.slotToCard[i] == null && !(deck.isEmpty())) {
                 Random rand = new Random();
                 int rnd = rand.nextInt(deck.size());

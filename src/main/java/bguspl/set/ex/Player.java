@@ -93,7 +93,7 @@ public class Player implements Runnable {
         this.human = human;
         this.dealer = dealer;
         this.tokensplaced = new LinkedList<>();
-        this.keyBlock = false;
+        this.keyBlock = true;
         inputpresses = new LinkedBlockingQueue<>(3);
         this.checklock = dealer.getLock();
     }
@@ -103,15 +103,12 @@ public class Player implements Runnable {
      */
     @Override
     public void run() {
+        keyBlock = false;
         playerThread = Thread.currentThread();
         env.logger.log(Level.INFO, "Thread " + Thread.currentThread().getName() + "starting.");
         if (!human) createArtificialIntelligence();
         while (!terminate) {
             synchronized (ailock) { ailock.notifyAll(); } // wake up the aithread
-//            try {
-//                synchronized (Lock) { Lock.wait();}
-//            } catch (InterruptedException e){}
-//            synchronized (ailock) { ailock.notifyAll(); } // wake up the aithread
             if (sleeptime == env.config.penaltyFreezeMillis) {
                 penalty();
             } else if (sleeptime == env.config.pointFreezeMillis)
@@ -122,6 +119,7 @@ public class Player implements Runnable {
             }
         }
         if (!human) try {
+            synchronized (ailock) { ailock.notifyAll(); }
             aiThread.join();
         } catch (InterruptedException ignored) {
         }
@@ -139,11 +137,13 @@ public class Player implements Runnable {
             env.logger.log(Level.INFO, "Thread " + Thread.currentThread().getName() + " starting.");
             while (!terminate) {
                 Random rand = new Random();
-                int rndslot = rand.nextInt(12);
+                int rndslot = rand.nextInt(table.slotToCard.length);
                 keyPressed(rndslot);
                 try {
-                    synchronized (ailock) { // we do it to avoid busy wait
-                        ailock.wait();
+                    if(!terminate) {
+                        synchronized (ailock) { // we do it to avoid busy wait
+                            ailock.wait();
+                        }
                     }
                 } catch (InterruptedException ignored) {
 
@@ -172,14 +172,14 @@ public class Player implements Runnable {
      * @param slot - the slot corresponding to the key pressed.
      */
     public void keyPressed(int slot) {
-        if (inputpresses.size()<3 && !keyBlock && table.slotToCard[slot] != null) {
+        if (inputpresses.size()<env.config.featureSize && !keyBlock && table.slotToCard[slot] != null) {
             inputpresses.add(slot);
         }
 //        synchronized (Lock) { Lock.notifyAll(); }
     }
 
     private void handleKeyPress(int slot) {
-        if (tokensplaced.size() < 3) {
+        if (tokensplaced.size() < env.config.featureSize) {
             if (tokensplaced.contains(slot)) {
                 tokensplaced.remove((Object) slot);
                 env.ui.removeToken(this.id, slot);
@@ -192,7 +192,7 @@ public class Player implements Runnable {
                         boolean ans = checklock.tryLock(); //trying to acquire the lock and returning if was able to or not
                         keyBlock = true;
                         boolean done=false;
-                        while (!done) {
+                        while (!done && !terminate) {
                         if (ans) {
                             try {
                             dealer.HandleTest(this);
