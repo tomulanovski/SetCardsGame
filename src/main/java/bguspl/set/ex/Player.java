@@ -54,7 +54,7 @@ public class Player implements Runnable {
      */
     private volatile boolean terminate;
 
-    private ReentrantLock checklock;
+    private final ReentrantLock checklock;
 
     /**
      * The current score of the player.
@@ -63,19 +63,18 @@ public class Player implements Runnable {
 
     private Dealer dealer;
 
-    private List<Integer> tokensplaced;
+    private final List<Integer> tokensplaced;
 
     private boolean keyBlock;
 
-    private int slotPressed;
 
-    private BlockingQueue<Integer> inputpresses;
+    private final BlockingQueue<Integer> inputpresses;
 
     private long sleeptime;
 
-    private Object ailock = new Object();
+    private final Object ailock = new Object();
 
-    private Object PressLock = new Object();
+    private final Object PressLock = new Object();
 
     /**
      * The class constructor.
