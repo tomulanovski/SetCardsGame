@@ -46,7 +46,6 @@ public class Dealer implements Runnable {
     private ReentrantLock checklock = new ReentrantLock();
 
 
-
     public Dealer(Env env, Table table, Player[] players) {
         this.env = env;
         this.table = table;
@@ -81,7 +80,8 @@ public class Dealer implements Runnable {
         for (int i= players.length-1;i>=0;i--) {
             try {
                 players[i].getPlayerThread().join();
-            } catch (InterruptedException e){}
+            } catch (InterruptedException e) {
+            }
         }
         env.logger.log(Level.INFO, "Thread " + Thread.currentThread().getName() + " terminated.");
     }
@@ -112,7 +112,6 @@ public class Dealer implements Runnable {
     }
 
     private void examine(Player p) {
-        System.out.println(threads[p.id].getName());
         int[] cards = new int[env.config.featureSize]; //featureSize is 3
         boolean isSet = false;
         if (p.gettokensplaced().size() == env.config.featureSize) {
@@ -183,7 +182,7 @@ public class Dealer implements Runnable {
 
             }
         }
-        if (shouldFinish()) terminate();
+//        if (shouldFinish()) terminate();
     }
 
     /**
