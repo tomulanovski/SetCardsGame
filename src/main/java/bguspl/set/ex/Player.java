@@ -93,7 +93,7 @@ public class Player implements Runnable {
         this.dealer = dealer;
         this.tokensplaced = new LinkedList<>();
         this.keyBlock = true;
-        inputpresses = new LinkedBlockingQueue<>(3);
+        inputpresses = new LinkedBlockingQueue<>(env.config.featureSize);
         this.checklock = dealer.getLock();
     }
 
