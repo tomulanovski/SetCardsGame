@@ -231,10 +231,13 @@ public class Player implements Runnable {
     public void point() {
         int ignored = table.countCards(); // this part is just for demonstration in the unit tests
         env.ui.setScore(id, ++score);
-//        long freezetime = System.currentTimeMillis() + env.config.pointFreezeMillis+1000;
-//        while (System.currentTimeMillis() <= freezetime) {
-//            env.ui.setFreeze(id, freezetime - System.currentTimeMillis());
-//        }
+        long freezetime = System.currentTimeMillis() + env.config.pointFreezeMillis;
+        while (System.currentTimeMillis() <= freezetime) {
+            env.ui.setFreeze(id, freezetime - System.currentTimeMillis());
+            try {
+                synchronized(this) { wait(900);}
+            } catch (InterruptedException e) {}
+        }
         sleeptime = 0;
         keyBlock=false;
     }
@@ -243,13 +246,18 @@ public class Player implements Runnable {
      * Penalize a player and perform other related actions.
      */
     public void penalty() {
-//        long freezetime = System.currentTimeMillis() + env.config.penaltyFreezeMillis+1000;
-//        while (System.currentTimeMillis() <= freezetime) {
-//            env.ui.setFreeze(id, freezetime - System.currentTimeMillis());
-//        }
-        sleeptime = 0;
-        keyBlock=false;
-    }
+        long freezetime = System.currentTimeMillis() + env.config.penaltyFreezeMillis;
+        while (System.currentTimeMillis() <= freezetime) {
+            env.ui.setFreeze(id, freezetime - System.currentTimeMillis());
+            try {
+                synchronized (this) {
+                    wait(900);
+                }
+            } catch (InterruptedException e) {}
+        }
+            sleeptime = 0;
+            keyBlock = false;
+        }
     public void Wakeup(long sleeptime) {
         this.sleeptime = sleeptime;
     }
